@@ -49,7 +49,7 @@ flowchart TD
     end
 
     subgraph Database["PostgreSQL"]
-        DB[(analysis_results\nusers)]
+        DB[(analysis_results & users)]
     end
 
     U -->|upload PDF + query| EP_SYNC
