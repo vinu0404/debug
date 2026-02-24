@@ -384,41 +384,28 @@ GET http://localhost:8000/analysis/a1b2c3d4-...
 
 | # | File | Bug | Fix |
 |---|------|-----|-----|
-| 1 | `agents.py:12` | `llm = llm` — self-referencing undefined variable causing `NameError` | Created a proper `LLM(model="gpt-4o", api_key=...)` instance from crewai |
-| 2 | `agents.py:8` | `from crewai.agents import Agent` — wrong import path (`crewai.agents` doesn't exist) | Changed to `from crewai import Agent` |
-| 3 | `agents.py:24` | `tool=[...]` — wrong parameter name (singular) | Changed to `tools=[...]` (plural) |
-| 4 | `agents.py:24` | `FinancialDocumentTool.read_data_tool` is a raw class method, not a CrewAI tool | Rewrote as standalone `@tool` decorated function |
-| 5 | `agents.py:25-27` | `max_iter=1`, `max_rpm=1` — agent can only do 1 iteration, practically useless | Increased to `max_iter=15`, `max_rpm=10` |
+| 1 | `agents.py` | `llm = llm` — self-referencing undefined variable causing `NameError` | Created a proper `LLM(model="gpt-4o", api_key=...)` instance from crewai |
+| 2 | `agents.py` | `from crewai.agents import Agent` — wrong import path (`crewai.agents` doesn't exist) | Changed to `from crewai import Agent` |
+| 3 | `agents.py` | `tool=[...]` — wrong parameter name (singular) | Changed to `tools=[...]` (plural) |
+| 4 | `agents.py` | `FinancialDocumentTool.read_data_tool` is a raw class method, not a CrewAI tool | Rewrote as standalone `@tool` decorated function |
+| 5 | `agents.py` | `max_iter=1`, `max_rpm=1` — agent can only do 1 iteration, practically useless | Increased to `max_iter=5`, `max_rpm=10` |
 | 6 | `agents.py` | `allow_delegation=True` on agents in a single-agent crew causes delegation loops | Set `allow_delegation=False` for all agents (they work in sequence) |
-| 7 | `tools.py:6` | `from crewai_tools import tools` — lowercase `tools` doesn't exist as an export | Removed; imported `SerperDevTool` directly from `crewai_tools` |
-| 8 | `tools.py:26` | `Pdf(file_path=path).load()` — `Pdf` class is never imported and doesn't exist | Replaced with `fitz.open()` from PyMuPDF |
-| 9 | `tools.py:16` | `async def read_data_tool(path=...)` — CrewAI tools aren't async; also no `@tool` decorator | Converted to sync function with `@tool("read_financial_document")` decorator |
+| 7 | `tools.py` | `from crewai_tools import tools` — lowercase `tools` doesn't exist as an export | Removed; imported `SerperDevTool` directly from `crewai_tools` |
+| 8 | `tools.py` | `Pdf(file_path=path).load()` — `Pdf` class is never imported and doesn't exist | Replaced with `fitz.open()` from PyMuPDF |
+| 9 | `tools.py` | `async def read_data_tool(path=...)` — CrewAI tools aren't async; also no `@tool` decorator | Converted to sync function with `@tool("read_financial_document")` decorator |
 | 10 | `tools.py` | Methods inside classes with no `self` parameter and no `@staticmethod` | Rewrote as standalone `@tool`-decorated functions |
-| 11 | `main.py:31` | Endpoint function named `analyze_financial_document` shadows the imported task variable of the same name | Renamed endpoint to `analyze_document` |
+| 11 | `main.py` | Endpoint function named `analyze_financial_document` shadows the imported task variable of the same name | Renamed endpoint to `analyze_document` |
 | 12 | `main.py:13` | `run_crew()` accepts `file_path` but never passes it in the `kickoff()` inputs | Added `file_path` to the inputs dict |
-| 13 | `main.py:15-18` | Crew had only 1 agent and 1 task — the other 3 agents and 3 tasks were defined but unused | Wired all 4 agents and all 4 tasks into the crew |
-| 14 | `task.py:4` | `from agents import financial_analyst, verifier` — only imported 2 of 4 agents; all tasks used `financial_analyst` even when specialist agents existed | Import all 4 agents; assign each task to its proper specialist |
+| 13 | `main.py` | Crew had only 1 agent and 1 task — the other 3 agents and 3 tasks were defined but unused | Wired all 4 agents and all 4 tasks into the crew |
+| 14 | `task.py` | `from agents import financial_analyst, verifier` — only imported 2 of 4 agents; all tasks used `financial_analyst` even when specialist agents existed | Import all 4 agents; assign each task to its proper specialist |
 | 15 | `requirements.txt` | `pydantic==1.10.13` conflicts with CrewAI which requires pydantic v2 | Updated to `pydantic>=2.0.0` |
 | 16 | `requirements.txt` | Missing critical dependencies: `python-multipart` (FastAPI uploads), `python-dotenv` | Added all missing packages |
-| 17 | `README.md:10` | `pip install -r requirement.txt` — typo, file is `requirements.txt` | Fixed filename |
-
-### Logical / Runtime Bugs (Found During Code Review)
-
-| # | File | Bug | Fix |
-|---|------|-----|-----|
-| 18 | `celery_worker.py:20` | `db = SessionLocal()` at **module level** — one shared DB session for all tasks. After first `db.close()` in `finally`, every subsequent task fails with a closed session | Create a fresh `db = SessionLocal()` inside each task function |
-| 19 | `celery_worker.py:78` | `record` referenced in `except` block but could be undefined if `db.query()` itself throws → `NameError` crash | Initialize `record = None` before try, check `if record:` in except |
-| 20 | `celery_worker.py:10-17` | CrewAI agents/tasks imported at module level — task objects can carry internal state between runs, causing stale data | Moved all CrewAI imports inside the task function for fresh instances per run |
-| 21 | `main.py:113` | `run_crew()` is synchronous (~minutes) called inside `async def` endpoint — **blocks the entire FastAPI event loop**, no other requests can be served | Wrapped with `await asyncio.to_thread(run_crew, ...)` to run in a thread pool |
-| 22 | `tools.py:10` | `import fitz` placed after `search_tool = SerperDevTool()` instead of at top with other imports | Moved to top-level imports |
-| 23 | `tools.py:47-68` | `analyze_investment_data` was hollow — just counted characters and estimated pages, extracted zero actual financial data | Rewrote to extract monetary values (`$X.XB`), percentages, and data-rich paragraphs using regex, giving the agent real figures to analyze |
-| 24 | `tools.py:72-105` | `assess_risk_factors` used primitive keyword counting (`"risk" found 5 times`) — no context for the agent to reason about | Rewrote to extract full paragraphs containing risk indicators, grouped by 5 risk categories, giving the agent rich context for qualitative analysis |
 
 ### Performance / Architecture Bugs
 
 | # | File | Bug | Fix |
 |---|------|-----|-----|
-| 25 | `main.py` + `task.py` + `agents.py` | **Every agent re-reads the same PDF separately** — 4 redundant `fitz.open()` calls + 4× the same text sent to the LLM, wasting time and tokens | Added `extract_pdf_text()` utility in `tools.py`; `run_crew()` reads PDF **once** and passes the text as `{document_text}` input to all agents. Only the verifier retains the PDF tool as a fallback. Reduces PDF reads from 4→1 per request. |
+| 17 | `main.py` + `task.py` + `agents.py` | **Every agent re-reads the same PDF separately** — 4 redundant `fitz.open()` calls + 4× the same text sent to the LLM, wasting time and tokens | Added `extract_pdf_text()` utility in `tools.py`; `run_crew()` reads PDF **once** and passes the text as `{document_text}` input to all agents. Only the verifier retains the PDF tool as a fallback. Reduces PDF reads from 4→1 per request. |
 
 ### Inefficient / Harmful Prompts
 
@@ -464,7 +451,7 @@ corrected-code/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11
 - Docker & Docker Compose (for PostgreSQL and Redis)
 - OpenAI API key
 - Serper API key (optional, for web search)
@@ -630,8 +617,7 @@ curl "http://localhost:8000/analyses?limit=5"
 
 - **ORM**: SQLAlchemy 2.0 with declarative models
 - **Storage**: Every analysis request is tracked with status, result, and timestamps
-- **User table**: Ready for API key authentication
-- **Docker**: PostgreSQL 16 runs in Docker with persistent volume
+- **User table**: store user data
 
 ---
 
