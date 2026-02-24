@@ -451,7 +451,6 @@ corrected-code/
 ├── database.py          # SQLAlchemy models (PostgreSQL)
 ├── celery_worker.py     # Celery background task worker
 ├── docker-compose.yml   # PostgreSQL + Redis + App + Worker
-├── Dockerfile           # Python 3.11 container image
 ├── requirements.txt     # All dependencies (fixed versions)
 ├── .env.example         # Template for environment variables
 ├── README.md            # This file

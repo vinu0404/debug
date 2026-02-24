@@ -1,0 +1,37 @@
+2026-02-25 00:14:58 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 00:14:58 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 00:14:58 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 00:14:58 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 00:21:09 | INFO     | main:lifespan:64 | Application shutdown
+2026-02-25 00:21:39 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 00:21:39 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 00:21:39 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 00:21:39 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 00:24:13 | INFO     | main:lifespan:64 | Application shutdown
+2026-02-25 00:24:39 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 00:24:39 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 00:24:39 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 00:24:39 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 00:27:33 | INFO     | main:analyze_document_async:232 | [ec6f376a-86ad-4596-bb16-95a6b9d9bd3d] Async analysis queued – file=TSLA-Q2-2025-Update.pdf
+2026-02-25 00:31:56 | INFO     | main:lifespan:64 | Application shutdown
+2026-02-25 00:32:24 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 00:32:24 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 00:32:24 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 00:32:24 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 00:32:30 | INFO     | main:lifespan:64 | Application shutdown
+2026-02-25 00:32:46 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 00:32:46 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 00:32:46 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 00:32:46 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 01:33:08 | INFO     | main:lifespan:64 | Application shutdown
+2026-02-25 01:33:40 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 01:33:40 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 01:33:40 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 01:33:40 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 01:37:05 | INFO     | main:analyze_document_async:232 | [cab731ed-bd42-410c-b859-fb28bcffa57a] Async analysis queued – file=TSLA-Q2-2025-Update.pdf
+2026-02-25 01:37:13 | INFO     | celery_worker:analyze_document_task:47 | [cab731ed-bd42-410c-b859-fb28bcffa57a] Celery task started – query='Full financial analysis of Tesla Q2 2025', file=data\financial_document_cab731ed-bd42-410c-b859-fb28bcffa57a.pdf
+2026-02-25 01:37:13 | INFO     | tools:extract_pdf_text:46 | PDF extracted: data\financial_document_cab731ed-bd42-410c-b859-fb28bcffa57a.pdf (30 pages, 39248 chars)
+2026-02-25 01:40:14 | INFO     | tools:assess_risk_factors:173 | Assessing risk factors – input length=23647 chars
+2026-02-25 01:43:30 | INFO     | tools:assess_risk_factors:173 | Assessing risk factors – input length=18162 chars
+2026-02-25 01:45:55 | INFO     | tools:analyze_investment_data:99 | Analyzing investment data – input length=15922 chars
+2026-02-25 01:46:24 | INFO     | celery_worker:analyze_document_task:95 | [cab731ed-bd42-410c-b859-fb28bcffa57a] Celery task completed – saved to outputs\TSLA-Q2-2025-Update_cab731ed.txt

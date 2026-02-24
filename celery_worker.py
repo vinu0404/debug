@@ -3,7 +3,9 @@ Celery worker for background financial-document analysis.
 """
 
 import os
+import sys
 import datetime
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from celery import Celery
 from config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND, OUTPUTS_DIR

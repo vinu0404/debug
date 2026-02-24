@@ -61,7 +61,7 @@ verifier = Agent(
     ),
     tools=[read_financial_document],
     llm=llm,
-    max_iter=10,
+    max_iter=5,
     max_rpm=10,
     allow_delegation=False,
 )
@@ -86,7 +86,7 @@ investment_advisor = Agent(
     ),
     tools=[analyze_investment_data, search_tool],
     llm=llm,
-    max_iter=15,
+    max_iter=5,
     max_rpm=10,
     allow_delegation=False,
 )
@@ -112,7 +112,7 @@ risk_assessor = Agent(
     ),
     tools=[assess_risk_factors],
     llm=llm,
-    max_iter=15,
+    max_iter=5,
     max_rpm=10,
     allow_delegation=False,
 )
