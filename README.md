@@ -1,8 +1,7 @@
-# Financial Document Analyzer — Corrected & Enhanced
+# Financial Document Analyzer
 
 A CrewAI-powered system that analyzes financial documents (PDFs) using four specialized AI agents: **Document Verifier**, **Financial Analyst**, **Risk Assessor**, and **Investment Advisor**.
 
-> **This is the fully debugged, production-ready version** of the original buggy `financial-document-analyzer-debug` codebase — with two bonus features: **Celery + Redis queue workers** and **PostgreSQL database integration**.
 
 ---
 
@@ -75,6 +74,307 @@ flowchart TD
     EP_STATUS --> DB
     EP_LIST --> DB
 ```
+
+---
+
+## How It Works 
+
+### User Sends a Request
+
+A user sends a **POST** to `/analyze` with a PDF file and a query string:
+
+```
+POST http://localhost:8000/analyze
+Content-Type: multipart/form-data
+
+file: <tesla_10k.pdf>
+query: "What are Tesla's key revenue drivers?"
+```
+
+### Request Handling (`analyze_document()` in [main.py](main.py#L111))
+
+| Step | What Happens | Detail |
+|------|-------------|--------|
+| 1 | **Generate UUID** | `file_id = str(uuid.uuid4())` — unique identifier for this analysis |
+| 2 | **Create DB record** | `AnalysisResult(id=file_id, status=PENDING)` is inserted into PostgreSQL |
+| 3 | **Read & validate upload** | `await file.read()` — checks file size ≤ 50 MB, rejects with HTTP 413 if too large |
+| 4 | **Save PDF to disk** | Written to `data/financial_document_{uuid}.pdf` |
+| 5 | **Update status** | DB record set to `PROCESSING`, committed |
+| 6 | **Run analysis in thread** | `await asyncio.to_thread(run_crew, query, file_path)` — offloads the blocking CrewAI work to a thread pool so FastAPI's async event loop stays responsive for new query
+
+### `run_crew()` — The Orchestrator ([main.py](main.py#L80))
+
+This run the AI pipeline:
+
+```python
+run_crew(query="What are Tesla's key revenue drivers?",
+         file_path="data/financial_document_xxx.pdf")
+```
+
+**Step 1 — Read PDF once:**
+```python
+document_text = extract_pdf_text(file_path)
+```
+The `extract_pdf_text()` function ([tools.py](tools.py#L20)) opens the PDF with PyMuPDF, extracts text from every page, concatenates it.
+
+**Step 2 — Build the Crew:**
+```python
+financial_crew = Crew(
+    agents=[verifier, financial_analyst, risk_assessor, investment_advisor],
+    tasks=[verification_task, financial_analysis_task, risk_assessment_task, investment_analysis_task],
+    process=Process.sequential,
+    verbose=True,
+)
+```
+All 4 agents and 4 tasks are wired into a **sequential pipeline** — each agent runs one after another.
+
+**Step 3 — Kick off:**
+```python
+result = financial_crew.kickoff(inputs={
+    "query": "What are Tesla's key revenue drivers?",
+    "file_path": "data/financial_document_uuid...pdf",
+    "document_text": "extracted text from pdf",
+})
+```
+CrewAI replaces `{query}`, `{file_path}`, and `{document_text}` placeholders in every agent goal and task description with the actual values. This is how **all 4 agents receive the full PDF text inline** in their prompts — without any agent needing to re-read the file.
+
+### Phase 5 — Sequential Agent Execution
+
+CrewAI runs the 4 tasks **one after another**. Each agent receives the output of all previous agents as additional context.
+
+---
+
+#### Agent 1: Verifier (Document Verification Specialist)
+
+| Detail | Value |
+|--------|-------|
+| **Role** | Big Four compliance expert |
+| **Input** | Task description contains the full `{document_text}` inline |
+| **Tools** | `read_financial_document` (fallback only — rarely used) |
+| **What it does** | The LLM reads the inline document text, checks for standard financial statement components (income statement, balance sheet, cash-flow statement, notes/disclosures), flags anomalies |
+| **Output** | Structured verification report with PASS/FAIL verdict |
+
+The LLM (GPT-4o-mini) sees the full document in its prompt and performs verification purely through reasoning. The `read_financial_document` tool exists as a fallback if the agent decides it needs to re-read the raw PDF file.
+
+---
+
+#### Agent 2: Financial Analyst (Senior Financial Analyst, CFA)
+
+| Detail | Value |
+|--------|-------|
+| **Input** | `{document_text}` + `{query}` + **output of Agent 1** (verification report) |
+| **Tools** | `search_tool` (SerperDevTool — Google search via Serper API) |
+| **What it does** | Analyzes the inline text to extract revenue, margins, EPS, cash flow, and other key metrics. May call `search_tool` to get current market context (stock price, industry benchmarks, recent news) |
+| **Output** | Detailed financial analysis report with metrics, trends, and data-backed answers to the user's query |
+
+---
+
+#### Agent 3: Risk Assessor (FRM-certified Risk Analyst)
+
+| Detail | Value |
+|--------|-------|
+| **Input** | `{document_text}` + `{query}` + **outputs of Agents 1 & 2** |
+| **Tools** | `assess_risk_factors` |
+| **What it does** | The LLM may call `assess_risk_factors(financial_text)` — a regex-based tool that scans for risk keywords across 5 categories, extracts matching paragraphs, and returns them grouped. The LLM then performs qualitative risk analysis on those sections. |
+| **Output** | Risk matrix with Low/Medium/High ratings per category |
+
+**How `assess_risk_factors` works internally ([tools.py](tools.py#L163)):**
+```
+Input text
+  → Split into paragraphs
+  → For each paragraph, check against 5 keyword lists:
+      • Credit & Debt Risk (debt, default, leverage, covenant...)
+      • Market & Volatility Risk (volatility, currency, inflation...)
+      • Legal & Regulatory Risk (litigation, SEC, compliance...)
+      • Operational Risk (restructuring, cybersecurity, supply chain...)
+      • Financial Health Concerns (decline, loss, going concern...)
+  → Group matching paragraphs by category
+  → Return structured extract with indicators
+  → LLM reasons over the extract to assign risk ratings
+```
+
+---
+
+#### Agent 4: Investment Advisor (FINRA-registered)
+
+| Detail | Value |
+|--------|-------|
+| **Input** | `{document_text}` + `{query}` + **outputs of Agents 1, 2, & 3** |
+| **Tools** | `analyze_investment_data` + `search_tool` |
+| **What it does** | The LLM may call `analyze_investment_data(financial_text)` to extract monetary and percentage figures via regex. May also call `search_tool` for macroeconomic context. Synthesizes all prior agent outputs into a final recommendation. |
+| **Output** | Professional investment recommendation with thesis, valuation, bull/bear cases, and disclaimers |
+
+**How `analyze_investment_data` works internally ([tools.py](tools.py#L89)):**
+```
+Input text
+  → Regex for monetary values: $X.X million/billion/M/B patterns
+  → Regex for percentage values: X.X% patterns
+  → Scan paragraphs for metric keywords (revenue, EPS, margin, guidance...)
+    that ALSO contain $ or % figures
+  → Return structured extraction:
+      • All unique monetary figures found
+      • All unique percentage figures found
+      • Key financial sections with matched keywords
+  → LLM uses these real figures to build investment thesis
+```
+
+---
+
+### Phase 6 — Result Storage & Response
+
+After `run_crew()` returns, back in `analyze_document()`:
+
+| Step | What Happens |
+|------|-------------|
+| 1 | **Update DB** — `status=COMPLETED`, `result=<crew output>`, `completed_at=utcnow()` |
+| 2 | **Save to file** — `save_analysis_output()` writes the result to `outputs/{filename}_{id}.txt` with a metadata header (analysis ID, source file, query, timestamp) |
+| 3 | **Clean up** — Delete the temporary PDF from `data/` |
+| 4 | **Return JSON** — Send the response back to the user |
+
+**Success response:**
+```json
+{
+  "status": "success",
+  "analysis_id": "a1b2c3d4-...",
+  "query": "What are Tesla's key revenue drivers?",
+  "analysis": "... comprehensive multi-agent analysis ...",
+  "file_processed": "tesla_10k.pdf",
+  "output_file": "outputs/tesla_10k_a1b2c3d4.txt"
+}
+```
+
+**If anything fails:** the `except` block sets `status=FAILED` and `error=<message>` in the DB, then returns HTTP 500.
+
+
+
+### Async Path (`/analyze-async`)
+
+The async endpoint lets the user **submit and walk away** — the heavy CrewAI pipeline runs in a separate Celery worker process while the API stays responsive.
+
+#### Step 1 — User Sends Request
+
+```
+POST http://localhost:8000/analyze-async
+Content-Type: multipart/form-data
+
+file: <tesla_10k.pdf>
+query: "Provide a comprehensive investment thesis"
+```
+
+#### Step 2 — FastAPI Endpoint (`analyze_document_async()` in [main.py](main.py#L195))
+
+| Step | What Happens | Detail |
+|------|-------------|--------|
+| 1 | **Generate UUID** | `file_id = str(uuid.uuid4())` |
+| 2 | **Read & validate upload** | `await file.read()` — rejects with HTTP 413 if > 50 MB |
+| 3 | **Save PDF to disk** | Written to `data/financial_document_{uuid}.pdf` |
+| 4 | **Create DB record** | `AnalysisResult(id=file_id, status=PENDING)` inserted into PostgreSQL |
+| 5 | **Dispatch to Celery** | `analyze_document_task.delay(file_id, query, file_path)` — serializes the 3 arguments as JSON and pushes a message onto the **Redis** broker queue |
+| 6 | **Return immediately** | The user gets the response in milliseconds — no waiting |
+
+**Response (instant):**
+```json
+{
+  "status": "accepted",
+  "analysis_id": "a1b2c3d4-...",
+  "message": "Analysis queued. Poll GET /analysis/{analysis_id} for results."
+}
+```
+
+At this point the user's HTTP connection is closed. The actual analysis hasn't started yet — it's sitting as a message in Redis.
+
+#### Step 3 — Redis Broker (Message Queue)
+
+```
+Redis Queue: "celery"
+  └── Task message: {
+        "task": "analyze_document",
+        "args": ["a1b2c3d4-...", "Provide a comprehensive investment thesis", "data/financial_document_a1b2c3d4.pdf"],
+        "retries": 0
+      }
+```
+
+Redis holds the task message until a Celery worker picks it up. If no worker is running, the message waits indefinitely in the queue.
+
+#### Step 4 — Celery Worker Picks Up the Task ([celery_worker.py](celery_worker.py#L35))
+
+The worker process (started via `celery -A celery_worker worker --loglevel=info --pool=solo`) constantly polls Redis. When it finds the message:
+
+| Step | What Happens |
+|------|-------------|
+| 1 | **Fresh imports** — `from database import SessionLocal`, `from agents import ...`, `from task import ...` are imported **inside** the task function (not at module level) to avoid stale state between runs |
+| 2 | **New DB session** — `db = SessionLocal()` creates a fresh PostgreSQL session for this task only |
+| 3 | **Look up record** — `db.query(AnalysisResult).filter(id == analysis_id).first()` fetches the PENDING record |
+| 4 | **Update status** — Sets `status=PROCESSING`, commits to DB |
+| 5 | **Read PDF once** — `document_text = extract_pdf_text(file_path)` — same single-read optimization as the sync path |
+| 6 | **Build Crew** — Same 4 agents, 4 tasks, `Process.sequential` |
+| 7 | **Kick off** — `crew.kickoff(inputs={query, file_path, document_text})` — runs the full sequential pipeline (Verifier → Analyst → Risk Assessor → Advisor) |
+| 8 | **Save result to DB** — `status=COMPLETED`, `result=<output>`, `completed_at=utcnow()` |
+| 9 | **Save to file** — Writes to `outputs/{filename}_{id}.txt` with metadata header |
+| 10 | **Cleanup** — Closes DB session, deletes temporary PDF from `data/` |
+
+**If the task fails:**
+- The `except` block sets `status=FAILED` and `error=<message>` in the DB.
+- Calls `self.retry(exc=exc, countdown=30 * (retries + 1))` — **auto-retries up to 2 times** with exponential backoff (30s, then 60s).
+- The `finally` block always closes the DB session and removes the temp PDF.
+
+#### Step 5 — User Polls for Results
+
+The user checks status by calling:
+
+```
+GET http://localhost:8000/analysis/a1b2c3d4-...
+```
+
+**While processing:**
+```json
+{
+  "analysis_id": "a1b2c3d4-...",
+  "status": "processing",
+  "filename": "tesla_10k.pdf",
+  "query": "Provide a comprehensive investment thesis",
+  "result": null,
+  "error": null,
+  "created_at": "2026-02-24 10:30:00",
+  "completed_at": null
+}
+```
+
+**When complete:**
+```json
+{
+  "analysis_id": "a1b2c3d4-...",
+  "status": "completed",
+  "filename": "tesla_10k.pdf",
+  "query": "Provide a comprehensive investment thesis",
+  "result": "... full multi-agent investment analysis ...",
+  "error": null,
+  "created_at": "2026-02-24 10:30:00",
+  "completed_at": "2026-02-24 10:32:15"
+}
+```
+
+**If failed (after all retries exhausted):**
+```json
+{
+  "analysis_id": "a1b2c3d4-...",
+  "status": "failed",
+  "result": null,
+  "error": "OpenAI API rate limit exceeded",
+  ...
+}
+```
+
+
+### Key Design Decisions
+
+| Decision | Why |
+|----------|-----|
+| **Single PDF read** | `extract_pdf_text()` runs once; text is injected via `{document_text}` into all 4 task descriptions. Without this, each agent would re-read the PDF = 4x I/O + 4x token cost. |
+| **`asyncio.to_thread`** | CrewAI's `kickoff()` is blocking (synchronous, can take minutes). Wrapping it in `to_thread` prevents it from freezing FastAPI's async event loop so other requests can still be served. |
+| **`Process.sequential`** | Each agent builds on previous outputs — the analyst needs the verifier's PASS, the risk assessor needs the analyst's metrics, and the advisor needs all three reports. |
+| **`allow_delegation=False`** | Prevents agents from randomly delegating work to each other, keeping the pipeline flow predictable and debuggable. |
+| **Regex tools + LLM reasoning** | Tools like `assess_risk_factors` do lightweight keyword/regex extraction to surface relevant paragraphs; the LLM does the actual qualitative analysis. This gives the agent focused, relevant data instead of processing 80k chars blindly. |
 
 ---
 
