@@ -35,3 +35,21 @@
 2026-02-25 01:43:30 | INFO     | tools:assess_risk_factors:173 | Assessing risk factors – input length=18162 chars
 2026-02-25 01:45:55 | INFO     | tools:analyze_investment_data:99 | Analyzing investment data – input length=15922 chars
 2026-02-25 01:46:24 | INFO     | celery_worker:analyze_document_task:95 | [cab731ed-bd42-410c-b859-fb28bcffa57a] Celery task completed – saved to outputs\TSLA-Q2-2025-Update_cab731ed.txt
+2026-02-25 02:01:29 | INFO     | main:analyze_document:132 | [0a799ed4-039e-48ab-985f-3ec4369bb1e6] Sync analysis request – file=TSLA-Q2-2025-Update.pdf, query='Analyze this financial document for investment insights'
+2026-02-25 02:01:29 | INFO     | main:run_crew:82 | Starting crew analysis – query='Analyze this financial document for investment insights', file=data\financial_document_0a799ed4-039e-48ab-985f-3ec4369bb1e6.pdf
+2026-02-25 02:01:30 | INFO     | tools:extract_pdf_text:46 | PDF extracted: data\financial_document_0a799ed4-039e-48ab-985f-3ec4369bb1e6.pdf (30 pages, 39248 chars)
+2026-02-25 02:01:30 | INFO     | main:run_crew:84 | PDF extracted – 39245 characters
+2026-02-25 02:04:52 | INFO     | tools:assess_risk_factors:173 | Assessing risk factors – input length=26729 chars
+2026-02-25 02:05:56 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 02:05:56 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 02:05:57 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 02:05:57 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 02:06:15 | INFO     | main:analyze_document:132 | [acbd8ba1-c932-4569-8d5e-a2c0ba80aa56] Sync analysis request – file=TSLA-Q2-2025-Update.pdf, query='Analyze this financial document for investment insights'
+2026-02-25 02:06:15 | INFO     | main:run_crew:82 | Starting crew analysis – query='Analyze this financial document for investment insights', file=data\financial_document_acbd8ba1-c932-4569-8d5e-a2c0ba80aa56.pdf
+2026-02-25 02:06:15 | INFO     | tools:extract_pdf_text:46 | PDF extracted: data\financial_document_acbd8ba1-c932-4569-8d5e-a2c0ba80aa56.pdf (30 pages, 39248 chars)
+2026-02-25 02:06:15 | INFO     | main:run_crew:84 | PDF extracted – 39245 characters
+2026-02-25 02:07:24 | INFO     | main:lifespan:55 | Application startup – initialising directories and database
+2026-02-25 02:07:24 | INFO     | database:init_db:70 | Creating database tables (if not exist)
+2026-02-25 02:07:24 | INFO     | database:init_db:72 | Database tables ready
+2026-02-25 02:07:24 | INFO     | main:lifespan:60 | Database tables initialised successfully
+2026-02-25 02:07:45 | INFO     | main:lifespan:64 | Application shutdown

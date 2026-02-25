@@ -14,36 +14,36 @@ flowchart TD
     end
 
     subgraph FastAPI["FastAPI Application (main.py)"]
-        EP_SYNC["POST /analyze\n(synchronous)"]
-        EP_ASYNC["POST /analyze-async\n(queued)"]
+        EP_SYNC["POST /analyze(synchronous)"]
+        EP_ASYNC["POST /analyze-async(queued)"]
         EP_STATUS["GET /analysis/{id}"]
         EP_LIST["GET /analyses"]
         EP_HEALTH["GET /"]
     end
 
     subgraph Orchestrator["run_crew() — Single PDF Read"]
-        PDF_READ["extract_pdf_text()\n(read PDF ONCE)"]
-        KICKOFF["crew.kickoff()\npasses {document_text}\nto all agents"]
+        PDF_READ["extract_pdf_text()(read PDF ONCE)"]
+        KICKOFF["crew.kickoff() passes {document_text} to all agents"]
         PDF_READ --> KICKOFF
     end
 
     subgraph CrewAI["CrewAI Pipeline (sequential)"]
-        A1["1. Verifier Agent\n(has PDF tool as fallback)"]
-        A2["2. Financial Analyst\n(uses pre-loaded text)"]
-        A3["3. Risk Assessor\n(uses pre-loaded text)"]
-        A4["4. Investment Advisor\n(uses pre-loaded text)"]
+        A1["1. Verifier Agent(has PDF tool as fallback)"]
+        A2["2. Financial Analyst(uses pre-loaded text)"]
+        A3["3. Risk Assessor(uses pre-loaded text)"]
+        A4["4. Investment Advisor(uses pre-loaded text)"]
         A1 --> A2 --> A3 --> A4
     end
 
     subgraph Tools["Agent Tools (tools.py)"]
-        T1["read_financial_document\n(fallback only)"]
-        T2["analyze_investment_data\n(extracts $ and % figures)"]
-        T3["assess_risk_factors\n(extracts risk paragraphs)"]
-        T4["search_tool\n(SerperDevTool)"]
+        T1["read_financial_document(fallback only)"]
+        T2["analyze_investment_data(extracts $ and % figures)"]
+        T3["assess_risk_factors(extracts risk paragraphs)"]
+        T4["search_tool(SerperDevTool)"]
     end
 
     subgraph Queue["Celery + Redis"]
-        CW["Celery Worker\n(celery_worker.py)"]
+        CW["Celery Worker(celery_worker.py)"]
         RD[(Redis Broker)]
     end
 
